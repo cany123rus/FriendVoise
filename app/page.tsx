@@ -691,14 +691,28 @@ export default function Home() {
   }
 
   const loadInitial = async () => {
-    const { data } = await supabase.auth.getSession()
-    let uid = data.session?.user?.id || null
-    let email = data.session?.user?.email || null
+    let uid: string | null = null
+    let email: string | null = null
+
+    try {
+      const initial = await Promise.race([
+        supabase.auth.getSession(),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('auth timeout')), 6000)),
+      ])
+      uid = initial.data.session?.user?.id || null
+      email = initial.data.session?.user?.email || null
+    } catch {
+      uid = null
+      email = null
+    }
 
     if (!uid) {
       try {
         // attempt token refresh path on hard reload
-        await supabase.auth.getUser()
+        await Promise.race([
+          supabase.auth.getUser(),
+          new Promise<never>((_, reject) => setTimeout(() => reject(new Error('user timeout')), 4000)),
+        ])
         const { data: afterUser } = await supabase.auth.getSession()
         uid = afterUser.session?.user?.id || null
         email = afterUser.session?.user?.email || null
