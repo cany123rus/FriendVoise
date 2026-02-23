@@ -1,4 +1,5 @@
-const { app, BrowserWindow, shell, session, desktopCapturer, ipcMain } = require('electron')
+const { app, BrowserWindow, shell, session, desktopCapturer, ipcMain, dialog } = require('electron')
+const { autoUpdater } = require('electron-updater')
 const path = require('path')
 
 const isDev = !app.isPackaged
@@ -43,6 +44,42 @@ function createWindow() {
   })
 }
 
+function setupAutoUpdater() {
+  if (isDev) return
+
+  autoUpdater.autoDownload = true
+  autoUpdater.autoInstallOnAppQuit = true
+
+  autoUpdater.on('error', (err) => {
+    console.error('[auto-updater] error', err)
+  })
+
+  autoUpdater.on('update-available', (info) => {
+    console.log('[auto-updater] update available', info?.version)
+  })
+
+  autoUpdater.on('update-downloaded', async (info) => {
+    const result = await dialog.showMessageBox({
+      type: 'info',
+      buttons: ['Перезапустить сейчас', 'Позже'],
+      defaultId: 0,
+      cancelId: 1,
+      title: 'Обновление готово',
+      message: `Новая версия ${info?.version || ''} загружена. Перезапустить приложение для установки?`,
+    })
+
+    if (result.response === 0) {
+      setImmediate(() => autoUpdater.quitAndInstall())
+    }
+  })
+
+  setTimeout(() => {
+    autoUpdater.checkForUpdates().catch((err) => {
+      console.error('[auto-updater] check failed', err)
+    })
+  }, 3000)
+}
+
 app.whenReady().then(() => {
   // Enable screen sharing in Electron (Windows/macOS/Linux)
   session.defaultSession.setDisplayMediaRequestHandler(async (_request, callback) => {
@@ -78,6 +115,8 @@ app.whenReady().then(() => {
   })
 
   createWindow()
+  setupAutoUpdater()
+
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })

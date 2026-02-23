@@ -11,6 +11,7 @@
     "desktop:dev": "concurrently -k \"npm run dev\" \"wait-on http://localhost:3000 && electron .\"",
     "desktop:build:win": "npm run build && electron-builder --publish never --win portable nsis",
     "desktop:build:win:installer": "npm run build && electron-builder --publish never --win nsis",
+    "desktop:build:win:publish": "npm run build && electron-builder --publish always --win portable nsis",
     "desktop:build:dir": "npm run build && electron-builder --dir"
   },
   "dependencies": {
@@ -33,6 +34,7 @@
     "concurrently": "^9.1.2",
     "electron": "^33.2.1",
     "electron-builder": "^25.1.8",
+    "electron-updater": "^6.3.9",
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
     "png-to-ico": "^3.0.1",
@@ -47,6 +49,13 @@
     "directories": {
       "output": "release"
     },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "cany123rus",
+        "repo": "FriendVoise"
+      }
+    ],
     "files": [
       "electron/**/*",
       "out/**/*",
