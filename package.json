@@ -9,7 +9,8 @@
     "lint": "eslint",
     "api:dev": "node backend/server.js",
     "desktop:dev": "concurrently -k \"npm run dev\" \"wait-on http://localhost:3000 && electron .\"",
-    "desktop:build:win": "npm run build && electron-builder --win portable",
+    "desktop:build:win": "npm run build && electron-builder --win portable nsis",
+    "desktop:build:win:installer": "npm run build && electron-builder --win nsis",
     "desktop:build:dir": "npm run build && electron-builder --dir"
   },
   "dependencies": {
@@ -29,13 +30,14 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "eslint": "^9",
-    "eslint-config-next": "16.1.6",
-    "tailwindcss": "^4",
-    "typescript": "^5",
     "concurrently": "^9.1.2",
     "electron": "^33.2.1",
     "electron-builder": "^25.1.8",
+    "eslint": "^9",
+    "eslint-config-next": "16.1.6",
+    "png-to-ico": "^3.0.1",
+    "tailwindcss": "^4",
+    "typescript": "^5",
     "wait-on": "^8.0.1"
   },
   "main": "electron/main.cjs",
@@ -51,9 +53,19 @@
       "package.json"
     ],
     "win": {
+      "icon": "electron/assets/icon.ico",
       "target": [
-        "portable"
+        "portable",
+        "nsis"
       ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "artifactName": "Friends-Voice-Setup-${version}.${ext}"
+    },
+    "portable": {
+      "artifactName": "Friends-Voice-Portable-${version}.${ext}"
     }
   }
 }

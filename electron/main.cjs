@@ -1,8 +1,10 @@
-const { app, BrowserWindow, shell, session, desktopCapturer } = require('electron')
+const { app, BrowserWindow, shell, session, desktopCapturer, ipcMain } = require('electron')
 const path = require('path')
 
 const isDev = !app.isPackaged
 const PROD_WEB_URL = process.env.DESKTOP_APP_URL || 'https://voice-d76eb.web.app'
+
+let mainWindow = null
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -12,12 +14,10 @@ function createWindow() {
     minHeight: 700,
     backgroundColor: '#1e1f22',
     autoHideMenuBar: true,
+    frame: false,
     titleBarStyle: 'hidden',
-    titleBarOverlay: {
-      color: '#202225',
-      symbolColor: '#dbdee1',
-      height: 30,
-    },
+    backgroundMaterial: 'none',
+    icon: path.join(__dirname, 'assets', 'icon.png'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,
@@ -25,6 +25,8 @@ function createWindow() {
       sandbox: false,
     },
   })
+
+  mainWindow = win
 
   if (isDev) {
     win.loadURL('http://localhost:3000')
@@ -57,6 +59,22 @@ app.whenReady().then(() => {
   session.defaultSession.setPermissionRequestHandler((_webContents, permission, callback) => {
     const allow = ['media', 'display-capture', 'fullscreen', 'notifications'].includes(permission)
     callback(allow)
+  })
+
+
+  ipcMain.handle('window:minimize', () => {
+    const w = BrowserWindow.getFocusedWindow() || mainWindow
+    if (w) w.minimize()
+  })
+  ipcMain.handle('window:maximize-toggle', () => {
+    const w = BrowserWindow.getFocusedWindow() || mainWindow
+    if (!w) return
+    if (w.isMaximized()) w.unmaximize()
+    else w.maximize()
+  })
+  ipcMain.handle('window:close', () => {
+    const w = BrowserWindow.getFocusedWindow() || mainWindow
+    if (w) w.close()
   })
 
   createWindow()

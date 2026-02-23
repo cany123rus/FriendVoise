@@ -135,6 +135,7 @@ export default function Home() {
   const [dmInput, setDmInput] = useState('')
   const [profileEditorOpen, setProfileEditorOpen] = useState(false)
   const [profileNameDraft, setProfileNameDraft] = useState('')
+  const [isDesktopApp, setIsDesktopApp] = useState(false)
   const [newChannelName, setNewChannelName] = useState('')
   const [newChannelType, setNewChannelType] = useState<'text' | 'voice'>('text')
 
@@ -1039,6 +1040,11 @@ export default function Home() {
   useEffect(() => {
     refreshAudioElementVolumes()
   }, [masterVolume, userVolumes, mutedUsers])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    setIsDesktopApp(Boolean((window as any)?.desktopInfo?.isDesktop))
+  }, [])
 
   useEffect(() => {
     remoteVideoWrapByIdentityRef.current.forEach((wrap, identity) => {
@@ -2031,7 +2037,19 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-[#313338] to-[#2b2d31] text-[#dbdee1] grid grid-cols-[76px_286px_1fr_248px]">
+    <>
+      {isDesktopApp && (
+        <div className="fixed top-0 left-0 right-0 z-[120] h-8 bg-[#202225] border-b border-[#2b2d31] flex items-center justify-between" style={{ WebkitAppRegion: 'drag' } as any}>
+          <div className="px-3 text-xs text-[#b5bac1]">Friends Voice</div>
+          <div className="flex items-stretch" style={{ WebkitAppRegion: 'no-drag' } as any}>
+            <button onClick={() => (window as any)?.desktopWindow?.minimize?.()} className="w-12 h-8 hover:bg-[#3a3d44] text-[#b5bac1]">─</button>
+            <button onClick={() => (window as any)?.desktopWindow?.maximizeToggle?.()} className="w-12 h-8 hover:bg-[#3a3d44] text-[#b5bac1]">□</button>
+            <button onClick={() => (window as any)?.desktopWindow?.close?.()} className="w-12 h-8 hover:bg-[#da373c] text-[#dbdee1]">✕</button>
+          </div>
+        </div>
+      )}
+
+      <main className={`min-h-screen bg-gradient-to-b from-[#313338] to-[#2b2d31] text-[#dbdee1] grid grid-cols-[76px_286px_1fr_248px] ${isDesktopApp ? 'pt-8' : ''}`}>
       <aside className="border-r border-[#1e1f22] bg-[#1e1f22]/95 backdrop-blur p-3 space-y-4 flex flex-col items-center">
         <div className="h-10 w-10 rounded-xl bg-[#111214] flex items-center justify-center overflow-hidden border border-[#2b2d31]">
           <img src="/app-logo.svg" alt="Friends Voice" className="h-8 w-8 object-contain" />
@@ -2648,6 +2666,7 @@ export default function Home() {
         </div>
       )}
 
-    </main>
+      </main>
+    </>
   )
 }
