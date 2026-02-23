@@ -2202,8 +2202,13 @@ export default function Home() {
                   <span className="inline-flex w-4 text-xs text-zinc-300 mr-2 justify-center">{c.type === 'text' ? '#' : '🔊'}</span>
                   {c.name}
                   {c.type === 'voice' && activeChannelId === c.id && voiceMembers.length > 0 && (
-                    <div className="mt-1 pl-6 text-[10px] text-[#949ba4] truncate">
-                      {voiceMembers.map((u) => displayNameInChannel(u.identity, u.name)).join(', ')}
+                    <div className="mt-1 pl-6 text-[12px] text-[#b5bac1] space-y-0.5">
+                      {voiceMembers.map((u) => (
+                        <div key={u.identity} className="truncate flex items-center gap-1.5">
+                          <span className={`inline-block h-1.5 w-1.5 rounded-full ${u.speaking ? 'bg-emerald-400' : 'bg-[#7b7f87]'}`} />
+                          <span className="font-medium">{displayNameInChannel(u.identity, u.name)}</span>
+                        </div>
+                      ))}
                     </div>
                   )}
                   {activeChannelId === c.id && <span className="ml-2 inline-block h-2 w-2 rounded-full bg-white/90" />}
@@ -2549,8 +2554,13 @@ export default function Home() {
                   <span className="inline-flex w-4 mr-2 justify-center text-xs">{c.type === 'text' ? '#' : '🔊'}</span>
                   {c.name}
                   {c.type === 'voice' && activeChannelId === c.id && voiceMembers.length > 0 && (
-                    <div className="mt-1 pl-6 text-[10px] text-[#949ba4] truncate">
-                      {voiceMembers.map((u) => displayNameInChannel(u.identity, u.name)).join(', ')}
+                    <div className="mt-1 pl-6 text-[12px] text-[#b5bac1] space-y-0.5">
+                      {voiceMembers.map((u) => (
+                        <div key={u.identity} className="truncate flex items-center gap-1.5">
+                          <span className={`inline-block h-1.5 w-1.5 rounded-full ${u.speaking ? 'bg-emerald-400' : 'bg-[#7b7f87]'}`} />
+                          <span className="font-medium">{displayNameInChannel(u.identity, u.name)}</span>
+                        </div>
+                      ))}
                     </div>
                   )}
                   {activeChannelId === c.id && <span className="ml-2 inline-block h-2 w-2 rounded-full bg-white/90" />}
