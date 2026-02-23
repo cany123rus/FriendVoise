@@ -1,4 +1,4 @@
-const { app, BrowserWindow, shell } = require('electron')
+const { app, BrowserWindow, shell, session, desktopCapturer } = require('electron')
 const path = require('path')
 
 const isDev = !app.isPackaged
@@ -42,6 +42,23 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
+  // Enable screen sharing in Electron (Windows/macOS/Linux)
+  session.defaultSession.setDisplayMediaRequestHandler(async (_request, callback) => {
+    try {
+      const sources = await desktopCapturer.getSources({ types: ['screen', 'window'] })
+      const screenSource = sources.find((s) => s.id.startsWith('screen:')) || sources[0]
+      callback({ video: screenSource, audio: 'loopback' })
+    } catch {
+      callback({})
+    }
+  })
+
+  // Allow camera/mic/display-capture permissions for app web contents
+  session.defaultSession.setPermissionRequestHandler((_webContents, permission, callback) => {
+    const allow = ['media', 'display-capture', 'fullscreen', 'notifications'].includes(permission)
+    callback(allow)
+  })
+
   createWindow()
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
