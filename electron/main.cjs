@@ -80,6 +80,8 @@ function setupAutoUpdater() {
   }, 3000)
 }
 
+app.commandLine.appendSwitch('enable-features', 'WebRTCPipeWireCapturer')
+
 app.whenReady().then(() => {
   // Enable screen sharing in Electron (Windows/macOS/Linux)
   session.defaultSession.setDisplayMediaRequestHandler(async (_request, callback) => {
@@ -96,6 +98,9 @@ app.whenReady().then(() => {
   session.defaultSession.setPermissionRequestHandler((_webContents, permission, callback) => {
     const allow = ['media', 'display-capture', 'fullscreen', 'notifications'].includes(permission)
     callback(allow)
+  })
+  session.defaultSession.setPermissionCheckHandler((_webContents, permission) => {
+    return ['media', 'display-capture', 'fullscreen', 'notifications'].includes(permission)
   })
 
 

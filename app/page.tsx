@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { Room, RoomEvent, Track } from 'livekit-client'
+import { Room, RoomEvent, Track, createLocalScreenTracks } from 'livekit-client'
 
 type Profile = { id: string; username: string | null }
 type Server = { id: string; name: string; invite_code: string }
@@ -1889,20 +1889,40 @@ export default function Home() {
     })
   }
 
+  const stopScreenShareTracks = async (room: Room) => {
+    try {
+      await room.localParticipant.setScreenShareEnabled(false)
+    } catch {}
+
+    try {
+      room.localParticipant.trackPublications.forEach((pub) => {
+        if (pub.track?.source === Track.Source.ScreenShare && pub.track) {
+          try { room.localParticipant.unpublishTrack(pub.track) } catch {}
+          try { pub.track.stop() } catch {}
+        }
+      })
+    } catch {}
+
+    if (localScreenTrackRef.current) {
+      try { localScreenTrackRef.current.stop() } catch {}
+      localScreenTrackRef.current = null
+    }
+
+    setScreenSharing(false)
+  }
+
   const toggleScreenShare = async () => {
     const room = liveRoomRef.current
     if (!room) return
 
     try {
       if (screenSharing) {
-        await room.localParticipant.setScreenShareEnabled(false)
-        if (localScreenTrackRef.current) {
-          try { localScreenTrackRef.current.stop() } catch {}
-          localScreenTrackRef.current = null
-        }
-        setScreenSharing(false)
+        await stopScreenShareTracks(room)
         return
       }
+
+      // cleanup stale publications before new start
+      await stopScreenShareTracks(room)
 
       // Preferred path (LiveKit built-in)
       try {
@@ -1913,8 +1933,8 @@ export default function Home() {
         })
         setScreenSharing(true)
         return
-      } catch {
-        // fallback to manual getDisplayMedia below
+      } catch (err) {
+        console.warn('setScreenShareEnabled failed, trying manual fallback', err)
       }
 
       // Fallback path for browsers/electron variants where setScreenShareEnabled fails
@@ -1923,28 +1943,28 @@ export default function Home() {
         return
       }
 
-      const stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false })
-      const track = stream.getVideoTracks()?.[0]
-      if (!track) {
+      // Use LiveKit helper in fallback (more reliable than raw publishTrack)
+      const tracks = await createLocalScreenTracks({ audio: false, video: true })
+      const videoTrack = tracks.find((t: any) => t?.source === Track.Source.ScreenShare || t?.kind === 'video') as any
+      if (!videoTrack) {
         setVoiceStatus('Не удалось получить поток экрана')
         return
       }
 
-      localScreenTrackRef.current = track
-      track.onended = async () => {
-        try {
-          await room.localParticipant.setScreenShareEnabled(false)
-        } catch {}
-        setScreenSharing(false)
-        localScreenTrackRef.current = null
+      const mediaTrack = videoTrack.mediaStreamTrack as MediaStreamTrack | undefined
+      if (mediaTrack) {
+        localScreenTrackRef.current = mediaTrack
+        mediaTrack.onended = async () => {
+          await stopScreenShareTracks(room)
+        }
       }
 
-      await room.localParticipant.publishTrack(track, { source: Track.Source.ScreenShare, name: 'screen' })
+      await room.localParticipant.publishTrack(videoTrack, { source: Track.Source.ScreenShare, name: 'screen' })
       setScreenSharing(true)
     } catch (e: any) {
       const msg = String(e?.message || e || 'неизвестно')
-      if (/denied|permission|NotAllowed/i.test(msg)) {
-        setVoiceStatus('Нет разрешения на захват экрана. Разрешите screen share в браузере.')
+      if (/denied|permission|NotAllowed|permission dismissed/i.test(msg)) {
+        setVoiceStatus('Нет разрешения на захват экрана. Разрешите трансляцию экрана в системе/браузере.')
       } else {
         setVoiceStatus(`Ошибка трансляции экрана: ${msg}`)
       }
