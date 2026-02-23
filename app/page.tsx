@@ -112,6 +112,7 @@ export default function Home() {
   const videoStageRef = useRef<HTMLDivElement | null>(null)
   const remoteVideoElsRef = useRef<HTMLMediaElement[]>([])
   const remoteVideoWrapRef = useRef<Map<HTMLMediaElement, HTMLDivElement>>(new Map())
+  const localScreenTrackRef = useRef<MediaStreamTrack | null>(null)
   const hydratingUidRef = useRef<string | null>(null)
   const lastHydratedUidRef = useRef<string | null>(null)
 
@@ -1607,6 +1608,11 @@ export default function Home() {
       localAudioCtxRef.current = null
     }
 
+    if (localScreenTrackRef.current) {
+      try { localScreenTrackRef.current.stop() } catch {}
+      localScreenTrackRef.current = null
+    }
+
     setJoinedVoiceChannelId(null)
     setVoiceConnected(false)
     setScreenSharing(false)
@@ -1800,15 +1806,62 @@ export default function Home() {
   const toggleScreenShare = async () => {
     const room = liveRoomRef.current
     if (!room) return
+
     try {
-      await room.localParticipant.setScreenShareEnabled(!screenSharing, {
-        audio: false,
-        resolution: { width: 1920, height: 1080, frameRate: 30 },
-        contentHint: 'detail',
-      })
-      setScreenSharing((v) => !v)
+      if (screenSharing) {
+        await room.localParticipant.setScreenShareEnabled(false)
+        if (localScreenTrackRef.current) {
+          try { localScreenTrackRef.current.stop() } catch {}
+          localScreenTrackRef.current = null
+        }
+        setScreenSharing(false)
+        return
+      }
+
+      // Preferred path (LiveKit built-in)
+      try {
+        await room.localParticipant.setScreenShareEnabled(true, {
+          audio: false,
+          resolution: { width: 1920, height: 1080, frameRate: 30 },
+          contentHint: 'detail',
+        })
+        setScreenSharing(true)
+        return
+      } catch {
+        // fallback to manual getDisplayMedia below
+      }
+
+      // Fallback path for browsers/electron variants where setScreenShareEnabled fails
+      if (!navigator?.mediaDevices?.getDisplayMedia) {
+        setVoiceStatus('Трансляция экрана не поддерживается в этом браузере/устройстве')
+        return
+      }
+
+      const stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false })
+      const track = stream.getVideoTracks()?.[0]
+      if (!track) {
+        setVoiceStatus('Не удалось получить поток экрана')
+        return
+      }
+
+      localScreenTrackRef.current = track
+      track.onended = async () => {
+        try {
+          await room.localParticipant.setScreenShareEnabled(false)
+        } catch {}
+        setScreenSharing(false)
+        localScreenTrackRef.current = null
+      }
+
+      await room.localParticipant.publishTrack(track, { source: Track.Source.ScreenShare, name: 'screen' })
+      setScreenSharing(true)
     } catch (e: any) {
-      setVoiceStatus(`Ошибка трансляции экрана: ${e?.message || 'неизвестно'}`)
+      const msg = String(e?.message || e || 'неизвестно')
+      if (/denied|permission|NotAllowed/i.test(msg)) {
+        setVoiceStatus('Нет разрешения на захват экрана. Разрешите screen share в браузере.')
+      } else {
+        setVoiceStatus(`Ошибка трансляции экрана: ${msg}`)
+      }
     }
   }
 
