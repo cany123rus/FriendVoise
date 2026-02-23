@@ -2201,9 +2201,9 @@ export default function Home() {
                 >
                   <span className="inline-flex w-4 text-xs text-zinc-300 mr-2 justify-center">{c.type === 'text' ? '#' : '🔊'}</span>
                   {c.name}
-                  {c.type === 'voice' && activeChannelId === c.id && voiceUsers.length > 0 && (
+                  {c.type === 'voice' && activeChannelId === c.id && voiceMembers.length > 0 && (
                     <div className="mt-1 pl-6 text-[10px] text-[#949ba4] truncate">
-                      {voiceUsers.map((u) => (voiceUserNames[u.user_id] || u.user_id.slice(0, 6))).join(', ')}
+                      {voiceMembers.map((u) => displayNameInChannel(u.identity, u.name)).join(', ')}
                     </div>
                   )}
                   {activeChannelId === c.id && <span className="ml-2 inline-block h-2 w-2 rounded-full bg-white/90" />}
@@ -2548,9 +2548,9 @@ export default function Home() {
                 >
                   <span className="inline-flex w-4 mr-2 justify-center text-xs">{c.type === 'text' ? '#' : '🔊'}</span>
                   {c.name}
-                  {c.type === 'voice' && activeChannelId === c.id && voiceUsers.length > 0 && (
+                  {c.type === 'voice' && activeChannelId === c.id && voiceMembers.length > 0 && (
                     <div className="mt-1 pl-6 text-[10px] text-[#949ba4] truncate">
-                      {voiceUsers.map((u) => (voiceUserNames[u.user_id] || u.user_id.slice(0, 6))).join(', ')}
+                      {voiceMembers.map((u) => displayNameInChannel(u.identity, u.name)).join(', ')}
                     </div>
                   )}
                   {activeChannelId === c.id && <span className="ml-2 inline-block h-2 w-2 rounded-full bg-white/90" />}
