@@ -51,6 +51,7 @@ export default function Home() {
   const [activeServerId, setActiveServerId] = useState<string | null>(null)
   const [channels, setChannels] = useState<Channel[]>([])
   const [activeChannelId, setActiveChannelId] = useState<string | null>(null)
+  const [activeTextChannelId, setActiveTextChannelId] = useState<string | null>(null)
 
   const [messages, setMessages] = useState<Msg[]>([])
   const [messageInput, setMessageInput] = useState('')
@@ -144,6 +145,12 @@ export default function Home() {
     () => channels.find((c) => c.id === activeChannelId) || null,
     [channels, activeChannelId]
   )
+
+  const displayChatChannelId = useMemo(() => {
+    if (activeChannel?.type === 'text') return activeChannel.id
+    if (activeTextChannelId && channels.some((c) => c.id === activeTextChannelId && c.type === 'text')) return activeTextChannelId
+    return channels.find((c) => c.type === 'text')?.id || null
+  }, [activeChannel, activeTextChannelId, channels])
 
   const sortedVoiceMembers = useMemo(() => {
     const list = [...voiceMembers]
@@ -486,6 +493,13 @@ export default function Home() {
     if (typeof window === 'undefined') return
     try { window.localStorage.setItem(DMS_STORAGE_KEY, JSON.stringify(dmsByPair)) } catch {}
   }, [dmsByPair])
+
+
+  useEffect(() => {
+    if (activeChannel?.type === 'text' && activeChannelId) {
+      setActiveTextChannelId(activeChannelId)
+    }
+  }, [activeChannel?.type, activeChannelId])
 
   useEffect(() => {
     if (!activeServerId) return
@@ -936,12 +950,12 @@ export default function Home() {
   }, [activeServerId])
 
   useEffect(() => {
-    if (!activeChannelId || activeChannel?.type !== 'text') return
-    loadMessages(activeChannelId)
+    if (!displayChatChannelId) return
+    loadMessages(displayChatChannelId)
 
     const ch = supabase
-      .channel(`messages:${activeChannelId}`)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `channel_id=eq.${activeChannelId}` }, (payload) => {
+      .channel(`messages:${displayChatChannelId}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `channel_id=eq.${displayChatChannelId}` }, (payload) => {
         setMessages((prev) => [...prev, payload.new as Msg])
       })
       .subscribe()
@@ -949,7 +963,7 @@ export default function Home() {
     return () => {
       supabase.removeChannel(ch)
     }
-  }, [activeChannelId, activeChannel?.type])
+  }, [displayChatChannelId])
 
   useEffect(() => {
     if (!activeChannelId || activeChannel?.type !== 'voice') return
@@ -1221,6 +1235,22 @@ export default function Home() {
     }
   }
 
+
+  const handleChannelClick = async (channel: Channel) => {
+    setActiveChannelId(channel.id)
+    if (channel.type === 'text') {
+      setActiveTextChannelId(channel.id)
+      return
+    }
+
+    // Discord-like behavior: clicking voice channel connects immediately
+    if (!voiceConnected && !voiceActionBusy) {
+      setTimeout(() => {
+        void joinVoice()
+      }, 0)
+    }
+  }
+
   const createChannel = async () => {
     if (!activeServerId || !newChannelName.trim()) return
     const { error } = await supabase.from('channels').insert({
@@ -1275,13 +1305,13 @@ export default function Home() {
   }
 
   const sendMessage = async () => {
-    if (!sessionUserId || !activeChannelId || !messageInput.trim()) return
-    if (channelPerms[activeChannelId] && !channelPerms[activeChannelId].canSend) {
+    if (!sessionUserId || !displayChatChannelId || !messageInput.trim()) return
+    if (channelPerms[displayChatChannelId] && !channelPerms[displayChatChannelId].canSend) {
       alert('Нет права canSend для этого канала (локальная настройка)')
       return
     }
     const { error } = await supabase.from('messages').insert({
-      channel_id: activeChannelId,
+      channel_id: displayChatChannelId,
       author_id: sessionUserId,
       content: messageInput.trim(),
     })
@@ -1541,7 +1571,7 @@ export default function Home() {
         // new device takes over and previous device gets kicked from voice via presence loss
         await supabase.from('voice_presence').delete().eq('user_id', sessionUserId)
         await supabase.from('voice_presence').insert({
-          channel_id: activeChannelId,
+          channel_id: displayChatChannelId,
           user_id: sessionUserId,
           is_muted: muted,
           is_deafened: deafened,
@@ -2134,7 +2164,7 @@ export default function Home() {
               {!group.collapsed && group.channels.map((c) => (
                 <button
                   key={c.id}
-                  onClick={() => setActiveChannelId(c.id)}
+                  onClick={() => { void handleChannelClick(c) }}
                   draggable
                   onDragStart={() => setDragChannelId(c.id)}
                   onDragOver={(e) => e.preventDefault()}
@@ -2147,6 +2177,11 @@ export default function Home() {
                 >
                   <span className="inline-flex w-4 text-xs text-zinc-300 mr-2 justify-center">{c.type === 'text' ? '#' : '🔊'}</span>
                   {c.name}
+                  {c.type === 'voice' && activeChannelId === c.id && voiceUsers.length > 0 && (
+                    <div className="mt-1 pl-6 text-[10px] text-[#949ba4] truncate">
+                      {voiceUsers.map((u) => (voiceUserNames[u.user_id] || u.user_id.slice(0, 6))).join(', ')}
+                    </div>
+                  )}
                   {activeChannelId === c.id && <span className="ml-2 inline-block h-2 w-2 rounded-full bg-white/90" />}
                 </button>
               ))}
@@ -2300,7 +2335,7 @@ export default function Home() {
           </div>
         </div>
 
-        {activeChannel?.type === 'text' && (
+        {(displayChatChannelId) && (
           <>
             <div className="flex-1 overflow-auto py-4 px-2 space-y-0">
               {messages.map((m) => (
@@ -2327,146 +2362,15 @@ export default function Home() {
             <div className="px-4 pb-6 pt-3">
               <div className="flex gap-2 rounded-lg bg-[#383a40] px-3 py-2">
                 <button className="text-[#b5bac1] hover:text-white">＋</button>
-                <input className="flex-1 bg-transparent outline-none" value={messageInput} onChange={(e) => setMessageInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && sendMessage()} placeholder={`Написать в #${activeChannel?.name || 'канал'}`} disabled={!!activeChannelId && channelPerms[activeChannelId] ? !channelPerms[activeChannelId].canSend : false} />
+                <input className="flex-1 bg-transparent outline-none" value={messageInput} onChange={(e) => setMessageInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && sendMessage()} placeholder={`Написать в #${channels.find((c) => c.id === displayChatChannelId)?.name || 'канал'}`} disabled={!!displayChatChannelId && channelPerms[displayChatChannelId] ? !channelPerms[displayChatChannelId].canSend : false} />
                 <div className="flex items-center gap-1">
                   <button className="h-7 w-7 rounded text-[#b5bac1] hover:text-white hover:bg-[#4a4d55]">🎁</button>
                   <button className="h-7 w-7 rounded text-[#b5bac1] hover:text-white hover:bg-[#4a4d55]">😀</button>
-                  <button onClick={sendMessage} className="px-3 rounded-lg bg-[#5865f2] hover:bg-[#4752c4]" disabled={!!activeChannelId && channelPerms[activeChannelId] ? !channelPerms[activeChannelId].canSend : false}>Отпр.</button>
+                  <button onClick={sendMessage} className="px-3 rounded-lg bg-[#5865f2] hover:bg-[#4752c4]" disabled={!!displayChatChannelId && channelPerms[displayChatChannelId] ? !channelPerms[displayChatChannelId].canSend : false}>Отпр.</button>
                 </div>
               </div>
             </div>
           </>
-        )}
-
-        {activeChannel?.type === 'voice' && (
-          <div className="py-4 space-y-4 flex flex-col">
-            <div className="bg-[#2b2d31] border border-[#1e1f22] rounded-lg p-3 sticky top-3 z-10">
-              <div className="flex gap-2 flex-wrap items-center">
-                {!voiceConnected && <button onClick={joinVoice} className="px-3 py-1.5 rounded-lg bg-[#248046] hover:bg-[#2d7d46] text-sm">Подключиться</button>}
-                {!!voiceConnected && <button onClick={leaveVoice} className="px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-500 text-sm">Отключиться</button>}
-                <button onClick={() => updateVoiceFlags(!muted, deafened)} className={`px-3 py-1.5 rounded-lg text-sm ${muted ? 'bg-yellow-700' : 'bg-[#3f4147]'} hover:opacity-90`}>{muted ? 'Микр: выкл' : 'Микр: вкл'}</button>
-                <button onClick={() => updateVoiceFlags(muted, !deafened)} className={`px-3 py-1.5 rounded-lg text-sm ${deafened ? 'bg-yellow-700' : 'bg-[#3f4147]'} hover:opacity-90`}>{deafened ? 'Звук: выкл' : 'Звук: вкл'}</button>
-                {!!voiceConnected && <button onClick={toggleScreenShare} className={`px-3 py-1.5 rounded-lg text-sm ${screenSharing ? 'bg-[#5865f2]' : 'bg-[#3f4147]'} hover:opacity-90`}>{screenSharing ? 'Стоп экран' : 'Экран'}</button>}
-                {!!voiceStatus && <span className="text-[11px] text-[#b5bac1] px-2 py-1 rounded bg-[#1e1f22] border border-[#3f4147]">{voiceStatus}</span>}
-              </div>
-
-              <details className="mt-3 rounded-lg bg-[#1e1f22] border border-[#3f4147] p-2">
-                <summary className="cursor-pointer text-xs text-[#b5bac1]">Аудио-настройки</summary>
-                <div className="mt-2 space-y-2">
-                  <select
-                    value={selectedAudioInputId}
-                    onChange={(e) => setSelectedAudioInputId(e.target.value)}
-                    className="w-full rounded-lg bg-[#2b2d31] border border-[#3f4147] px-3 py-2 text-sm"
-                  >
-                    {audioInputs.length === 0 && <option value="">По умолчанию</option>}
-                    {audioInputs.map((d, idx) => (
-                      <option key={d.deviceId || idx} value={d.deviceId}>
-                        {d.label || `Микрофон ${idx + 1}`}
-                      </option>
-                    ))}
-                  </select>
-                  <label className="text-xs text-[#b5bac1]">Усиление микрофона: {micGain}%</label>
-                  <input type="range" min={0} max={300} value={micGain} onChange={(e) => setMicGain(Number(e.target.value))} className="w-full" />
-                  <label className="inline-flex items-center gap-2 text-xs text-zinc-300">
-                    <input type="checkbox" checked={noiseSuppressionEnabled} onChange={(e) => setNoiseSuppressionEnabled(e.target.checked)} />
-                    Шумоподавление
-                  </label>
-                  <label className="text-xs text-[#b5bac1]">Громкость выхода: {masterVolume}%</label>
-                  <input type="range" min={0} max={400} value={masterVolume} onChange={(e) => setMasterVolume(Number(e.target.value))} className="w-full" />
-                </div>
-              </details>
-            </div>
-
-            <div className="bg-[#2b2d31] border border-[#1e1f22] rounded-lg p-4" draggable onDragStart={(e) => e.dataTransfer.setData('text/plain', 'screen')} onDragOver={(e) => e.preventDefault()} onDrop={(e) => moveVoiceBlock(e.dataTransfer.getData('text/plain') as any, 'screen')} style={{ order: voiceLayout.indexOf('screen') }}>
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="font-semibold">Трансляция экрана ({remoteVideoCount})</h3>
-                <div className="flex gap-2">
-                  <button onClick={openScreenFullscreen} className="px-2 py-1 rounded bg-[#5865f2] text-xs">Полный экран</button>
-                  <button onClick={openScreenMiniWindow} className="px-2 py-1 rounded bg-[#3f4147] text-xs">Мини-окно</button>
-                </div>
-              </div>
-              <div ref={videoStageRef} className="fixed bottom-4 right-4 z-40 flex flex-col gap-2" />
-              <div className="text-sm text-[#949ba4]">Трансляции показываются маленьким окном как в Discord (справа внизу).</div>
-            </div>
-
-            <div className="bg-[#2b2d31] border border-[#1e1f22] rounded-lg p-4" draggable onDragStart={(e) => e.dataTransfer.setData('text/plain', 'presence')} onDragOver={(e) => e.preventDefault()} onDrop={(e) => moveVoiceBlock(e.dataTransfer.getData('text/plain') as any, 'presence')} style={{ order: voiceLayout.indexOf('presence') }}>
-              <h3 className="font-semibold mb-2">Кто в голосовом канале: {voiceUsers.length}</h3>
-              <div className="space-y-2">
-                {voiceUsers.map((u) => {
-                  const name = voiceUserNames[u.user_id] || u.user_id.slice(0, 8)
-                  return (
-                    <div key={u.user_id} className="bg-[#1e1f22] rounded px-3 py-2 text-sm flex items-center justify-between">
-                      <span>{name}</span>
-                      <span className="text-[#b5bac1]">{u.is_muted ? '🔇' : '🎙️'} {u.is_deafened ? '🙉' : '👂'}</span>
-                    </div>
-                  )
-                })}
-                {!voiceUsers.length && <div className="text-sm text-[#949ba4]">Пока никого нет</div>}
-              </div>
-            </div>
-
-            {!!voiceMembers.length && (
-              <div className="bg-[#2b2d31] border border-[#1e1f22] rounded-lg p-4" draggable onDragStart={(e) => e.dataTransfer.setData('text/plain', 'fine')} onDragOver={(e) => e.preventDefault()} onDrop={(e) => moveVoiceBlock(e.dataTransfer.getData('text/plain') as any, 'fine')} style={{ order: voiceLayout.indexOf('fine') }}>
-                <h3 className="font-semibold mb-2">Точная настройка громкости</h3>
-                <div className="space-y-2">
-                  {sortedVoiceMembers.map((v) => (
-                    <div key={v.identity} className="bg-[#1e1f22] rounded px-3 py-2 text-sm space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span>{displayNameInChannel(v.identity, v.name)}</span>
-                        <span className="text-zinc-300">{v.speaking ? '🟢 говорит' : '⚪'} {v.micEnabled ? '🎙️' : '🔇'}</span>
-                      </div>
-                      <div className="space-y-1">
-                        <div className="flex items-center justify-between">
-                          <label className="text-[11px] text-[#b5bac1]">Громкость {v.name}: {(userVolumes[v.identity] ?? 100)}%</label>
-                          <div className="flex gap-1 relative">
-                            <button
-                              onClick={() => setUserVolumes((prev) => ({ ...prev, [v.identity]: 100 }))}
-                              className="px-2 py-1 rounded text-xs bg-[#3f4147]"
-                            >
-                              100%
-                            </button>
-                            <button
-                              onClick={() => setPinnedIdentity((prev) => (prev === v.identity ? null : v.identity))}
-                              className={`px-2 py-1 rounded text-xs ${pinnedIdentity === v.identity ? 'bg-[#5865f2]' : 'bg-[#3f4147]'}`}
-                            >
-                              {pinnedIdentity === v.identity ? 'Unpin' : 'Pin'}
-                            </button>
-                            <button
-                              onClick={() => setMutedUsers((prev) => ({ ...prev, [v.identity]: !prev[v.identity] }))}
-                              className={`px-2 py-1 rounded text-xs ${mutedUsers[v.identity] ? 'bg-[#da373c]' : 'bg-[#3f4147]'}`}
-                            >
-                              {mutedUsers[v.identity] ? 'Размутить' : 'Локально mute'}
-                            </button>
-                            <button
-                              onClick={() => setOpenMemberMenuId((prev) => (prev === v.identity ? null : v.identity))}
-                              className="px-2 py-1 rounded text-xs bg-[#3f4147]"
-                            >
-                              ⋮
-                            </button>
-                            {openMemberMenuId === v.identity && (
-                              <div className="absolute right-0 top-8 z-20 bg-[#1e1f22] border border-[#3f4147] rounded p-1 flex gap-1">
-                                <button onClick={() => { setUserVolumes((prev) => ({ ...prev, [v.identity]: 80 })); setOpenMemberMenuId(null) }} className="px-2 py-1 text-xs rounded bg-[#3f4147]">80%</button>
-                                <button onClick={() => { setUserVolumes((prev) => ({ ...prev, [v.identity]: 150 })); setOpenMemberMenuId(null) }} className="px-2 py-1 text-xs rounded bg-[#3f4147]">150%</button>
-                                <button onClick={() => { setUserVolumes((prev) => ({ ...prev, [v.identity]: 200 })); setOpenMemberMenuId(null) }} className="px-2 py-1 text-xs rounded bg-[#3f4147]">200%</button>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                        <input
-                          type="range"
-                          min={0}
-                          max={400}
-                          value={userVolumes[v.identity] ?? 100}
-                          onChange={(e) => setUserVolumes((prev) => ({ ...prev, [v.identity]: Number(e.target.value) }))}
-                          className="w-full"
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
         )}
         {voiceConnected && (
           <div className="fixed bottom-3 left-[572px] right-3 z-50 bg-[#1e1f22]/95 backdrop-blur border border-[#3f4147] rounded-xl px-3 py-2 flex items-center justify-between shadow-2xl">
@@ -2614,11 +2518,16 @@ export default function Home() {
               {quickSwitcherChannels.map((c, idx) => (
                 <button
                   key={c.id}
-                  onClick={() => { setActiveChannelId(c.id); setQuickSwitcherOpen(false) }}
+                  onClick={() => { void handleChannelClick(c); setQuickSwitcherOpen(false) }}
                   className={`w-full text-left px-3 py-2 rounded mb-1 ${idx === quickSwitcherIndex ? 'bg-[#5865f2]' : 'bg-[#2b2d31] hover:bg-[#3a3d44]'}`}
                 >
                   <span className="inline-flex w-4 mr-2 justify-center text-xs">{c.type === 'text' ? '#' : '🔊'}</span>
                   {c.name}
+                  {c.type === 'voice' && activeChannelId === c.id && voiceUsers.length > 0 && (
+                    <div className="mt-1 pl-6 text-[10px] text-[#949ba4] truncate">
+                      {voiceUsers.map((u) => (voiceUserNames[u.user_id] || u.user_id.slice(0, 6))).join(', ')}
+                    </div>
+                  )}
                   {activeChannelId === c.id && <span className="ml-2 inline-block h-2 w-2 rounded-full bg-white/90" />}
                 </button>
               ))}
