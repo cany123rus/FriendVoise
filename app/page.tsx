@@ -2324,54 +2324,41 @@ export default function Home() {
 
         {activeChannel?.type === 'voice' && (
           <div className="py-4 space-y-4 flex flex-col">
-            <div className="bg-[#2b2d31] border border-[#1e1f22] rounded-lg p-4 space-y-3 sticky top-3 z-10">
-              <div className="text-sm text-zinc-300">Стабильный голосовой чат (LiveKit/WebRTC).</div>
-              <div className="text-xs text-[#b5bac1]">{voiceStatus}</div>
-
-              <div className="space-y-2">
-                <label className="text-xs text-[#b5bac1]">Микрофон (вход)</label>
-                <select
-                  value={selectedAudioInputId}
-                  onChange={(e) => setSelectedAudioInputId(e.target.value)}
-                  className="w-full rounded-lg bg-[#1e1f22] border border-[#3f4147] px-3 py-2 text-sm"
-                >
-                  {audioInputs.length === 0 && <option value="">По умолчанию</option>}
-                  {audioInputs.map((d, idx) => (
-                    <option key={d.deviceId || idx} value={d.deviceId}>
-                      {d.label || `Микрофон ${idx + 1}`}
-                    </option>
-                  ))}
-                </select>
+            <div className="bg-[#2b2d31] border border-[#1e1f22] rounded-lg p-3 sticky top-3 z-10">
+              <div className="flex gap-2 flex-wrap items-center">
+                {!voiceConnected && <button onClick={joinVoice} className="px-3 py-1.5 rounded-lg bg-[#248046] hover:bg-[#2d7d46] text-sm">Подключиться</button>}
+                {!!voiceConnected && <button onClick={leaveVoice} className="px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-500 text-sm">Отключиться</button>}
+                <button onClick={() => updateVoiceFlags(!muted, deafened)} className={`px-3 py-1.5 rounded-lg text-sm ${muted ? 'bg-yellow-700' : 'bg-[#3f4147]'} hover:opacity-90`}>{muted ? 'Микр: выкл' : 'Микр: вкл'}</button>
+                <button onClick={() => updateVoiceFlags(muted, !deafened)} className={`px-3 py-1.5 rounded-lg text-sm ${deafened ? 'bg-yellow-700' : 'bg-[#3f4147]'} hover:opacity-90`}>{deafened ? 'Звук: выкл' : 'Звук: вкл'}</button>
+                {!!voiceConnected && <button onClick={toggleScreenShare} className={`px-3 py-1.5 rounded-lg text-sm ${screenSharing ? 'bg-[#5865f2]' : 'bg-[#3f4147]'} hover:opacity-90`}>{screenSharing ? 'Стоп экран' : 'Экран'}</button>}
+                {!!voiceStatus && <span className="text-[11px] text-[#b5bac1] px-2 py-1 rounded bg-[#1e1f22] border border-[#3f4147]">{voiceStatus}</span>}
               </div>
 
-              <div className="space-y-2">
-                <label className="text-xs text-[#b5bac1]">Усиление микрофона: {micGain}%</label>
-                <input type="range" min={0} max={300} value={micGain} onChange={(e) => setMicGain(Number(e.target.value))} className="w-full" />
-                <p className="text-[11px] text-[#949ba4]">Рекомендуется 90–140% для чистого звука без перегруза.</p>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-xs text-[#b5bac1]">Очистка шума</label>
-                <label className="inline-flex items-center gap-2 text-sm text-zinc-300">
-                  <input type="checkbox" checked={noiseSuppressionEnabled} onChange={(e) => setNoiseSuppressionEnabled(e.target.checked)} />
-                  Улучшенное шумоподавление
-                </label>
-                <p className="text-[11px] text-[#949ba4]">Включено по умолчанию: лучше режет фоновые шумы и эхо.</p>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-xs text-[#b5bac1]">Громкость выхода: {masterVolume}%</label>
-                <input type="range" min={0} max={400} value={masterVolume} onChange={(e) => setMasterVolume(Number(e.target.value))} className="w-full" />
-                <p className="text-[11px] text-[#949ba4]">Можно усилить до 400% (через WebAudio), если собеседники тихие.</p>
-              </div>
-
-              <div className="flex gap-2 flex-wrap">
-                {!voiceConnected && <button onClick={joinVoice} className="px-4 py-2 rounded-lg bg-[#248046] hover:bg-[#2d7d46]">Подключиться</button>}
-                {!!voiceConnected && <button onClick={leaveVoice} className="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-500">Отключиться</button>}
-                <button onClick={() => updateVoiceFlags(!muted, deafened)} className={`px-4 py-2 rounded-lg ${muted ? 'bg-yellow-700' : 'bg-[#3f4147]'} hover:opacity-90`}>{muted ? 'Микрофон: выкл' : 'Микрофон: вкл'}</button>
-                <button onClick={() => updateVoiceFlags(muted, !deafened)} className={`px-4 py-2 rounded-lg ${deafened ? 'bg-yellow-700' : 'bg-[#3f4147]'} hover:opacity-90`}>{deafened ? 'Звук: выкл' : 'Звук: вкл'}</button>
-                {!!voiceConnected && <button onClick={toggleScreenShare} className={`px-4 py-2 rounded-lg ${screenSharing ? 'bg-[#5865f2]' : 'bg-[#3f4147]'} hover:opacity-90`}>{screenSharing ? 'Остановить трансляцию' : 'Трансляция экрана'}</button>}
-              </div>
+              <details className="mt-3 rounded-lg bg-[#1e1f22] border border-[#3f4147] p-2">
+                <summary className="cursor-pointer text-xs text-[#b5bac1]">Аудио-настройки</summary>
+                <div className="mt-2 space-y-2">
+                  <select
+                    value={selectedAudioInputId}
+                    onChange={(e) => setSelectedAudioInputId(e.target.value)}
+                    className="w-full rounded-lg bg-[#2b2d31] border border-[#3f4147] px-3 py-2 text-sm"
+                  >
+                    {audioInputs.length === 0 && <option value="">По умолчанию</option>}
+                    {audioInputs.map((d, idx) => (
+                      <option key={d.deviceId || idx} value={d.deviceId}>
+                        {d.label || `Микрофон ${idx + 1}`}
+                      </option>
+                    ))}
+                  </select>
+                  <label className="text-xs text-[#b5bac1]">Усиление микрофона: {micGain}%</label>
+                  <input type="range" min={0} max={300} value={micGain} onChange={(e) => setMicGain(Number(e.target.value))} className="w-full" />
+                  <label className="inline-flex items-center gap-2 text-xs text-zinc-300">
+                    <input type="checkbox" checked={noiseSuppressionEnabled} onChange={(e) => setNoiseSuppressionEnabled(e.target.checked)} />
+                    Шумоподавление
+                  </label>
+                  <label className="text-xs text-[#b5bac1]">Громкость выхода: {masterVolume}%</label>
+                  <input type="range" min={0} max={400} value={masterVolume} onChange={(e) => setMasterVolume(Number(e.target.value))} className="w-full" />
+                </div>
+              </details>
             </div>
 
             <div className="bg-[#2b2d31] border border-[#1e1f22] rounded-lg p-4" draggable onDragStart={(e) => e.dataTransfer.setData('text/plain', 'screen')} onDragOver={(e) => e.preventDefault()} onDrop={(e) => moveVoiceBlock(e.dataTransfer.getData('text/plain') as any, 'screen')} style={{ order: voiceLayout.indexOf('screen') }}>
