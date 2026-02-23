@@ -2033,7 +2033,9 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-gradient-to-b from-[#313338] to-[#2b2d31] text-[#dbdee1] grid grid-cols-[76px_286px_1fr_248px]">
       <aside className="border-r border-[#1e1f22] bg-[#1e1f22]/95 backdrop-blur p-3 space-y-4 flex flex-col items-center">
-        <div className="h-10 w-10 rounded-xl bg-[#5865f2] flex items-center justify-center font-bold">FV</div>
+        <div className="h-10 w-10 rounded-xl bg-[#111214] flex items-center justify-center overflow-hidden border border-[#2b2d31]">
+          <img src="/app-logo.svg" alt="Friends Voice" className="h-8 w-8 object-contain" />
+        </div>
 
         <div className="space-y-2 flex flex-col items-center">
           {servers.map((s) => {

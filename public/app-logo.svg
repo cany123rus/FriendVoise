@@ -1,0 +1,35 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Dark premium background -->
+    <radialGradient id="bgDark" cx="32%" cy="25%" r="85%">
+      <stop offset="0" stop-color="#1F2A5A"></stop>
+      <stop offset="0.55" stop-color="#0B1226"></stop>
+      <stop offset="1" stop-color="#060914"></stop>
+    </radialGradient>
+
+    <!-- Accent gradient for outline -->
+    <linearGradient id="strokeGrad" x1="150" y1="180" x2="360" y2="410" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#A78BFA"></stop>
+      <stop offset="0.5" stop-color="#60A5FA"></stop>
+      <stop offset="1" stop-color="#22D3EE"></stop>
+    </linearGradient>
+
+    <!-- Subtle glow/shadow -->
+    <filter id="shadowDark" x="-40%" y="-40%" width="180%" height="180%">
+      <feDropShadow dx="0" dy="10" stdDeviation="14" flood-color="#000000" flood-opacity="0.45"></feDropShadow>
+      <feDropShadow dx="0" dy="0" stdDeviation="8" flood-color="#60A5FA" flood-opacity="0.18"></feDropShadow>
+    </filter>
+  </defs>
+
+  <!-- Rounded icon background -->
+  <rect width="512" height="512" rx="110" fill="url(#bgDark)"></rect>
+
+  <!-- Headphones mark -->
+  <g filter="url(#shadowDark)">
+    <path d="M168 268 A88 88 0 0 1 344 268" fill="none" stroke="url(#strokeGrad)" stroke-width="18" stroke-linecap="round"></path>
+
+    <rect x="142" y="268" width="62" height="116" rx="28" fill="none" stroke="url(#strokeGrad)" stroke-width="18"></rect>
+
+    <rect x="308" y="268" width="62" height="116" rx="28" fill="none" stroke="url(#strokeGrad)" stroke-width="18"></rect>
+  </g>
+</svg>
