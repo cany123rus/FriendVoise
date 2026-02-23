@@ -968,6 +968,19 @@ export default function Home() {
   }, [activeChannelId, activeChannel?.type])
 
   useEffect(() => {
+    if (!voiceConnected || !sessionUserId || !joinedVoiceChannelId) return
+    const stillPresent = voiceUsers.some((u) => u.user_id === sessionUserId)
+    if (stillPresent) return
+
+    const timer = setTimeout(() => {
+      setVoiceStatus('Вы подключились с другого устройства. Эта сессия голоса отключена.')
+      void leaveVoice()
+    }, 1200)
+
+    return () => clearTimeout(timer)
+  }, [voiceUsers, voiceConnected, sessionUserId, joinedVoiceChannelId])
+
+  useEffect(() => {
     const loadAudioInputs = async () => {
       if (typeof window === 'undefined' || !navigator?.mediaDevices?.enumerateDevices) return
       try {
@@ -1524,7 +1537,10 @@ export default function Home() {
       }
 
       try {
-        await supabase.from('voice_presence').upsert({
+        // single-device voice session policy:
+        // new device takes over and previous device gets kicked from voice via presence loss
+        await supabase.from('voice_presence').delete().eq('user_id', sessionUserId)
+        await supabase.from('voice_presence').insert({
           channel_id: activeChannelId,
           user_id: sessionUserId,
           is_muted: muted,
