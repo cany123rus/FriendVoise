@@ -9,8 +9,8 @@
     "lint": "eslint",
     "api:dev": "node backend/server.js",
     "desktop:dev": "concurrently -k \"npm run dev\" \"wait-on http://localhost:3000 && electron .\"",
-    "desktop:build:win": "npm run build && electron-builder --win portable nsis",
-    "desktop:build:win:installer": "npm run build && electron-builder --win nsis",
+    "desktop:build:win": "npm run build && electron-builder --publish never --win portable nsis",
+    "desktop:build:win:installer": "npm run build && electron-builder --publish never --win nsis",
     "desktop:build:dir": "npm run build && electron-builder --dir"
   },
   "dependencies": {
