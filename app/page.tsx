@@ -162,6 +162,18 @@ export default function Home() {
     return list.sort((a, b) => (a.identity === pinnedIdentity ? -1 : b.identity === pinnedIdentity ? 1 : 0))
   }, [voiceMembers, pinnedIdentity])
 
+  const activeVoiceSidebarMembers = useMemo(() => {
+    const byId = new Map<string, { id: string; name: string; speaking: boolean }>()
+    for (const m of voiceMembers) {
+      byId.set(m.identity, { id: m.identity, name: m.name, speaking: m.speaking })
+    }
+    for (const u of voiceUsers) {
+      if (byId.has(u.user_id)) continue
+      byId.set(u.user_id, { id: u.user_id, name: voiceUserNames[u.user_id] || u.user_id.slice(0, 6), speaking: false })
+    }
+    return [...byId.values()]
+  }, [voiceMembers, voiceUsers, voiceUserNames])
+
   const visibleChannels = useMemo(() => {
     const filtered = channels.filter((c) => (channelPerms[c.id]?.canView ?? true))
     if (!activeServerId) return filtered
@@ -2219,12 +2231,12 @@ export default function Home() {
                 >
                   <span className="inline-flex w-4 text-xs text-zinc-300 mr-2 justify-center">{c.type === 'text' ? '#' : '🔊'}</span>
                   {c.name}
-                  {c.type === 'voice' && activeChannelId === c.id && voiceMembers.length > 0 && (
+                  {c.type === 'voice' && activeChannelId === c.id && activeVoiceSidebarMembers.length > 0 && (
                     <div className="mt-1 pl-6 text-[12px] text-[#b5bac1] space-y-0.5">
-                      {voiceMembers.map((u) => (
-                        <div key={u.identity} className="truncate flex items-center gap-1.5">
+                      {activeVoiceSidebarMembers.map((u) => (
+                        <div key={u.id} className="truncate flex items-center gap-1.5">
                           <span className={`inline-block h-1.5 w-1.5 rounded-full ${u.speaking ? 'bg-emerald-400' : 'bg-[#7b7f87]'}`} />
-                          <span className="font-medium">{displayNameInChannel(u.identity, u.name)}</span>
+                          <span className="font-medium">{displayNameInChannel(u.id, u.name)}</span>
                         </div>
                       ))}
                     </div>
@@ -2571,12 +2583,12 @@ export default function Home() {
                 >
                   <span className="inline-flex w-4 mr-2 justify-center text-xs">{c.type === 'text' ? '#' : '🔊'}</span>
                   {c.name}
-                  {c.type === 'voice' && activeChannelId === c.id && voiceMembers.length > 0 && (
+                  {c.type === 'voice' && activeChannelId === c.id && activeVoiceSidebarMembers.length > 0 && (
                     <div className="mt-1 pl-6 text-[12px] text-[#b5bac1] space-y-0.5">
-                      {voiceMembers.map((u) => (
-                        <div key={u.identity} className="truncate flex items-center gap-1.5">
+                      {activeVoiceSidebarMembers.map((u) => (
+                        <div key={u.id} className="truncate flex items-center gap-1.5">
                           <span className={`inline-block h-1.5 w-1.5 rounded-full ${u.speaking ? 'bg-emerald-400' : 'bg-[#7b7f87]'}`} />
-                          <span className="font-medium">{displayNameInChannel(u.identity, u.name)}</span>
+                          <span className="font-medium">{displayNameInChannel(u.id, u.name)}</span>
                         </div>
                       ))}
                     </div>
