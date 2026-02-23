@@ -70,6 +70,8 @@ export default function Home() {
   const [screenSharing, setScreenSharing] = useState(false)
   const [remoteVideoCount, setRemoteVideoCount] = useState(0)
   const [pinnedIdentity, setPinnedIdentity] = useState<string | null>(null)
+  const [screenShareUsers, setScreenShareUsers] = useState<Record<string, boolean>>({})
+  const [previewIdentity, setPreviewIdentity] = useState<string | null>(null)
   const [voiceLayout, setVoiceLayout] = useState<Array<'screen' | 'presence' | 'fine'>>(['screen', 'presence', 'fine'])
   const [openMemberMenuId, setOpenMemberMenuId] = useState<string | null>(null)
   const [pttEnabled, setPttEnabled] = useState(false)
@@ -113,6 +115,7 @@ export default function Home() {
   const videoStageRef = useRef<HTMLDivElement | null>(null)
   const remoteVideoElsRef = useRef<HTMLMediaElement[]>([])
   const remoteVideoWrapRef = useRef<Map<HTMLMediaElement, HTMLDivElement>>(new Map())
+  const remoteVideoWrapByIdentityRef = useRef<Map<string, HTMLDivElement>>(new Map())
   const localScreenTrackRef = useRef<MediaStreamTrack | null>(null)
   const hydratingUidRef = useRef<string | null>(null)
   const lastHydratedUidRef = useRef<string | null>(null)
@@ -1037,6 +1040,13 @@ export default function Home() {
     refreshAudioElementVolumes()
   }, [masterVolume, userVolumes, mutedUsers])
 
+  useEffect(() => {
+    remoteVideoWrapByIdentityRef.current.forEach((wrap, identity) => {
+      wrap.style.display = previewIdentity && previewIdentity !== identity ? 'none' : ''
+    })
+  }, [previewIdentity, remoteVideoCount])
+
+
   const authWithPassword = async () => {
     if (!login.trim() || !password.trim() || authSending || authCooldownSec > 0) return
 
@@ -1415,6 +1425,8 @@ export default function Home() {
 
           remoteVideoElsRef.current.push(el)
           remoteVideoWrapRef.current.set(el, wrap)
+          remoteVideoWrapByIdentityRef.current.set(identity, wrap)
+          setScreenShareUsers((prev) => ({ ...prev, [identity]: true }))
           videoStageRef.current?.appendChild(wrap)
           setRemoteVideoCount(remoteVideoElsRef.current.length)
           return
@@ -1470,6 +1482,13 @@ export default function Home() {
             }
             remoteVideoElsRef.current = remoteVideoElsRef.current.filter((x) => x !== el)
           })
+          remoteVideoWrapByIdentityRef.current.delete(identity)
+          setScreenShareUsers((prev) => {
+            const next = { ...prev }
+            delete next[identity]
+            return next
+          })
+          if (previewIdentity === identity) setPreviewIdentity(null)
           setRemoteVideoCount(remoteVideoElsRef.current.length)
           return
         }
@@ -1616,6 +1635,9 @@ export default function Home() {
     })
     remoteVideoElsRef.current = []
     remoteVideoWrapRef.current.clear()
+    remoteVideoWrapByIdentityRef.current.clear()
+    setScreenShareUsers({})
+    setPreviewIdentity(null)
     setRemoteVideoCount(0)
 
     remoteAudioElsRef.current.forEach((el) => {
@@ -2404,10 +2426,11 @@ export default function Home() {
                 className={`rounded-lg px-3 py-2 border relative transition-all duration-150 ${v.speaking ? 'border-emerald-400 bg-emerald-500/10 shadow-[0_0_0_1px_rgba(16,185,129,0.2)]' : 'border-[#1e1f22] bg-[#1e1f22]'}`}
               >
                 <div className="flex items-center justify-between text-sm gap-2">
-                  <div className="truncate">
+                  <button onClick={() => { if (screenShareUsers[v.identity]) setPreviewIdentity((p) => p === v.identity ? null : v.identity) }} className="truncate text-left">
                     <span className="truncate">{displayNameInChannel(v.identity, v.name)}</span>
+                    {screenShareUsers[v.identity] && <span className="ml-1">📺</span>}
                     <span className={`ml-2 text-[10px] px-1 rounded ${serverRoleById[v.identity] === 'owner' ? 'bg-[#5865f2] text-white' : 'bg-[#3f4147] text-[#dbdee1]'}`}>{serverRoleById[v.identity] || 'member'}</span>
-                  </div>
+                  </button>
                   <span className="text-xs">{v.speaking ? 'говорит' : 'тихо'}</span>
                 </div>
                 <div className="mt-1 text-[11px] text-[#949ba4]">{v.micEnabled ? '🎙️ микрофон' : '🔇 без микрофона'}</div>
