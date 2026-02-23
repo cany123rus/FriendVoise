@@ -24,3 +24,23 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Hide visual scrollbars, keep wheel/touch scrolling working */
+* {
+  scrollbar-width: none; /* Firefox */
+}
+*::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+/* Slightly cleaner default button feel app-wide */
+button {
+  transition: background-color 120ms ease, transform 120ms ease, box-shadow 120ms ease;
+}
+button:hover {
+  transform: translateY(-1px);
+}
+button:active {
+  transform: translateY(0);
+}
